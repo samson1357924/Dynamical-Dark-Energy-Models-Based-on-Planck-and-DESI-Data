@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# phys: merged Phase A (forward) and Phase B (backward) cosmological analysis
 """
 Created on Fri Mar 28 01:52:28 2025
 

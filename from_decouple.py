@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# phys: Phase A - forward evolution from decoupling (z~1060) to present
 """
 Created on Fri Jan  3 04:09:22 2025
 

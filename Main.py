@@ -1,4 +1,4 @@
-# phys: merged Phase A (forward) and Phase B (backward) cosmological analysis
+# phys: primary analysis script integrating Phase A (forward) and Phase B (backward)
 """
 Created on Fri Mar 28 01:52:28 2025
 

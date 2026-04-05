@@ -558,7 +558,7 @@ def forward_evolution(status, d_m1060):
     plt.xscale('log')
     plt.grid()
     plt.savefig('forward_2.png')
-    plt.show()
+    plt.close()
     return d_m0, chi_squared_gamma
 
 

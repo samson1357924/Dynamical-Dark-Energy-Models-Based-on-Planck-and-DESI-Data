@@ -545,9 +545,7 @@ def forward_evolution(status, d_m1060):
     plt.grid()
     plt.savefig('forward_1.png')
     plt.close()
-    return d_m0, chi_squared_gamma
 
-def forward_evolution_2(status_1060, d_m1060, sol_B, z):
     plt.figure(figsize=(10, 8))
     plt.plot(1+z, sol_B[:, 8], label=r'$\delta$')
     plt.plot(1+z, sol_B[:, 9], label=r'$d\delta$')
@@ -560,8 +558,9 @@ def forward_evolution_2(status_1060, d_m1060, sol_B, z):
     plt.xscale('log')
     plt.grid()
     plt.savefig('forward_2.png')
-    plt.close()
+    plt.show()
     return d_m0, chi_squared_gamma
+
 
 chi_squared_SUM, status_1060 = backward_growth(NP_az)
 d_m0, chi_squared_gamma = forward_evolution(status_1060, d_m1060)

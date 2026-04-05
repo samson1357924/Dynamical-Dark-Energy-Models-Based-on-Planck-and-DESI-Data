@@ -42,53 +42,56 @@ NP_az = np.array([[ 1.00000000e+00,  8.31053215e-01,  6.19908704e-01,  4.6841623
                   [-2.99980901e+00,  5.48678742e-01, -1.97731811e+00, -6.49292166e-01, -1.35553660e+00, -1.00000002e+00]])
 d_m1060 = 0.0024727484505241547
 
-# 定義 w_phi_a 為 2x6 的變數 (可以初始化為隨機數或某個起始值)
-def backward_growth(NP_az):
-    a = Symbol('a') 
-    y = Symbol('y')
-    f = Function('f')
-    b = Symbol('b')
-    a1 = Symbol('a1')
+# --- 優化區塊：預先編譯 SymPy 函數 ---
+def get_compiled_functions(NP_az_data):
+    functions_compiled = []
+    a_sym = Symbol('a_sym')
+    b_sym = Symbol('b_sym')
     
-    function_results = {}
-    
-    for x in range(0, len(NP_az[0])-1):
-        # 定義 F1_Ori 方程式
-        F1_Ori = b*(a-NP_az[0,x])*(a-NP_az[0,x+1])
+    for x in range(0, len(NP_az_data[0])-1):
+        F1_Ori = b_sym * (a_sym - NP_az_data[0,x]) * (a_sym - NP_az_data[0,x+1])
+        result_expr = integrate(F1_Ori, a_sym)
         
-        # 進行積分
-        result = integrate(F1_Ori, a)
-        # 將 a 的值設定為 1，b 的值設定為 2
-        a_value_1 = NP_az[0,x]
-        a_value_2 = NP_az[0,x+1]
+        a_value_1 = NP_az_data[0,x]
+        a_value_2 = NP_az_data[0,x+1]
         b_value = 1
         
-        # 求出b
-        result_1 = result.subs({a: a_value_1, b: b_value})
-        result_2 = result.subs({a: a_value_2, b: b_value})
-        b_value = (NP_az[1,x]-NP_az[1,x+1])/(result_1-result_2)
-        # 求出c
-        result_1 = result.subs({ b: b_value}) - result.subs({a: a_value_1, b: b_value}) + NP_az[1,x]
+        result_1 = result_expr.subs({a_sym: a_value_1, b_sym: b_value})
+        result_2 = result_expr.subs({a_sym: a_value_2, b_sym: b_value})
         
-        # 將結果存儲到字典中
-        function_results[f"function_{x}"] = result_1
-    functions = []
-    for i in range(0, len(NP_az[0])-1):
-        f = lambdify(a, function_results[f"function_{i}"])
-        functions.append(f)
-    print(NP_az)
+        denominator = float(result_1 - result_2)
+        if abs(denominator) < 1e-15:
+            b_val = 0.0
+        else:
+            b_val = (NP_az_data[1,x] - NP_az_data[1,x+1]) / denominator
+            
+        final_expr = result_expr.subs({b_sym: b_val}) - result_expr.subs({a_sym: a_value_1, b_sym: b_val}) + NP_az_data[1,x]
+        # 強制使用 numpy 模組進行數值運算
+        functions_compiled.append(lambdify(a_sym, final_expr, 'numpy'))
+    return functions_compiled
+
+# 預先為 NP_az 和 NP_az_rev 生成函數
+functions_forward = get_compiled_functions(NP_az)
+NP_az_rev = NP_az[:, ::-1]
+functions_backward = get_compiled_functions(NP_az_rev)
+
+
+def backward_growth(NP_az_input):
+    #print(NP_az_input)
 
     def model(y, eta):
         rho_m, rho_r, rho_phi, H, a, t, r, D = y
         w_m, w_r, w_phi = 0.0, 1/3, -1.0  # 這裡假設 w_i 為常數，您可以根據需要進行修改    
-        # 根據a的值選擇適當的w_phi函數
-        if a > NP_az[0, len(NP_az[0])-1]:
-            for x in range(0, len(NP_az[0])-1):
-                if  a > NP_az[0, x + 1]:
-                    w_phi = functions[x](a)
+        
+        # 根據a的值選擇適當的w_phi函數 (優化：使用預編譯函數)
+        if a > NP_az_input[0, len(NP_az_input[0])-1]:
+            for x in range(0, len(NP_az_input[0])-1):
+                if a > NP_az_input[0, x + 1]:
+                    w_phi = float(functions_forward[x](a))
                     break
         else:
-            w_phi = -1
+            w_phi = -1.0
+            
         dydeta = [3*a*H*(1+w_m)*rho_m,
                   3*a*H*(1+w_r)*rho_r,
                   3*a*H*(1+w_phi)*rho_phi,
@@ -102,7 +105,7 @@ def backward_growth(NP_az):
     # 初始條件
     y0 = np.array([rho_m0, rho_r0, rho_phi0, 1, 1,1/H_0-1.8666203222880963e+40, 10, 0])  # 這裡假設初始值為0，您可以根據需要進行修改
     # 時間點
-    eta = np.linspace(0, 4.1, 100000)  # 這裡假設 eta 從 0 到 10，您可以根據需要進行修改
+    eta = np.linspace(0, 4.1, 2000000)  # 這裡假設 eta 從 0 到 10，您可以根據需要進行修改
 
     # 解微分方程
     sol = odeint(model, y0, eta)
@@ -117,14 +120,14 @@ def backward_growth(NP_az):
     
     w_phi = []
 
-    for a in sol[:, 4]: # 對 A 中的每個元素 x
-        if a > NP_az[0, len(NP_az[0])-1]:
-            for x in range(0, len(NP_az[0])-1):
-                if  a >= NP_az[0, x + 1]:
-                    w_phi.append(functions[x](a))
+    for a_val in sol[:, 4]: # 對 A 中的每個元素 x
+        if a_val > NP_az_input[0, len(NP_az_input[0])-1]:
+            for x in range(0, len(NP_az_input[0])-1):
+                if  a_val >= NP_az_input[0, x + 1]:
+                    w_phi.append(float(functions_forward[x](a_val)))
                     break
         else:
-            w_phi.append(-1)
+            w_phi.append(-1.0)
     w_phi_np = np.array(w_phi)
     q = sol[:, 1]/rho_c + 1/2*sol[:, 0]/rho_c + 1/2*sol[:, 2]/rho_c*(1 +3*w_phi_np)
 
@@ -143,7 +146,8 @@ def backward_growth(NP_az):
     #print("z = ",input_num)
 
     if input_num in dict_mz:
-        print(dict_mz[input_num])
+        #print(dict_mz[input_num])
+        pass
     else:
         input_num = min(1060, z[-1])  # 確保 input_num 不超過 z 的最大值
         # 如果在 B 陣列中沒有剛好的數字，找出最接近的兩個數字
@@ -184,10 +188,11 @@ def backward_growth(NP_az):
         A_interp = A1 + (A2 - A1) * (input_num - B1) / (B2 - B1)
         
     status_1060 = np.array([m_1060, r_1060, phi_1060, H_1060, 1/1061, A_interp, 0, 0])
-    print("z=1060；", status_1060)
+    #print("z=1060；", status_1060)
     
     if 1089 in dict_rdz:
-        print(dict_rdz[1089])
+        #print(dict_rdz[1089])
+        r_d_1089 = dict_rdz[1089]
     else:
         # 如果在 B 陣列中沒有剛好的數字，找出最接近的兩個數字
         idx = np.searchsorted(z, 1089)
@@ -199,7 +204,8 @@ def backward_growth(NP_az):
         #print(r'r_d@1060 =',r_d_interp)
         
     if 1060 in dict_rdz:
-        print(dict_rdz[1060])
+        #print(dict_rdz[1060])
+        r_d_1060 = dict_rdz[1060]
     else:
         # 如果在 B 陣列中沒有剛好的數字，找出最接近的兩個數字
         idx = np.searchsorted(z, 1060)
@@ -208,9 +214,11 @@ def backward_growth(NP_az):
 
         # 透過前後兩個數字的差分法，計算出對應數值
         r_d_interp = A1 + (A2 - A1) * (1060 - B1) / (B2 - B1)
+        r_d_1060 = r_d_interp
         #print(r'r_d@1060 =',r_d_interp)
+        
     r_dinf = sol[:, 6][-1]
-    r_d = r_d_interp-r_dinf
+    r_d = r_d_1060-r_dinf
     r_d_1089 = r_d_1089-r_dinf
     #print(r'r_d@1e15 =',sol[:, 6][999999])
     #print(r'r_d =',r_d_interp-sol[:, 6][999999])
@@ -291,6 +299,7 @@ def backward_growth(NP_az):
             D_V_error = np.append(D_V_error,S)
     result_P = (D_Theta_1089[8] - Plank_2018[0]) / Plank_2018[1]
     Plank_2018_error = np.array([result_P,0,0,0,0,0,0])
+    
     # 將陣列轉換成 DataFrame
     df = pd.DataFrame({
         'z': z_input,
@@ -317,7 +326,7 @@ def backward_growth(NP_az):
     chi_squared_SUM = chi_squared_DESI + (chi_squared_plank/10)**2
     print('chi_squared_DESI = ',chi_squared_DESI)
     print('chi_plank = ',chi_squared_plank)
-    print('chi_squared_SUM = ',chi_squared_SUM)
+    print('chi_squared_SUM_A = ',chi_squared_SUM)
     # 顯示 DataFrame
     print(df)
     print(df_error)
@@ -331,24 +340,14 @@ def backward_growth(NP_az):
     ax.plot(1+z, sol[:, 0]/rho_c, label=r'$\Omega_m$')
     ax.plot(1+z, sol[:, 1]/rho_c, label=r'$\Omega_r$')
     ax.plot(1+z, sol[:, 2]/rho_c, label=r'$\Omega_\phi$')
-    #plt.plot(z, sol[:, 3], label=r'$H$')
-    #plt.plot(z, sol[:, 4], label='a')
     ax.plot(1+z, w_phi, label=r'$w_\phi$')
-    #ax.plot(1/w_phi_a.all_a_values, w_phi_a.all_y_values, label=r'$w_\phi$')
-    #ax.plot(1+z, q, label='q')
     ax.plot(1+z, sol[:, 5]*H_0, label=r'$H_0t$')
-    #ax.plot(1+z, w_phi_avg, label=r'$\langle w_\phi \rangle$')
+    
     ax2.plot(1+z, sol[:, 0]/rho_c, label=r'$\Omega_m$')
     ax2.plot(1+z, sol[:, 1]/rho_c, label=r'$\Omega_r$')
     ax2.plot(1+z, sol[:, 2]/rho_c, label=r'$\Omega_\phi$')
-    #plt.plot(z, sol[:, 3], label=r'$H$')
-    #plt.plot(z, sol[:, 4], label='a')
     ax2.plot(1+z, w_phi, label=r'$w_\phi$')
-    #ax2.plot(1/w_phi_a.all_a_values, w_phi_a.all_y_values, label=r'$w_\phi$')
-    #ax2.plot(1+z, q, label='q')
     ax2.plot(1+z, sol[:, 5]*H_0, label=r'$H_0t$')
-    #ax2.plot(1+z, w_phi_avg, label=r'$\langle w_\phi \rangle$')
-    
     
     ax.set_xlim(1, 100)
     ax2.set_xlim(1000, 1e4)
@@ -361,7 +360,6 @@ def backward_growth(NP_az):
     ax2.yaxis.tick_right()
     
     d = .015  # how big to make the diagonal lines in axes coordinates
-    # arguments to pass plot, just so we don't keep repeating them
     kwargs = dict(transform=ax.transAxes, color='k', clip_on=False)
     ax.plot((1-d, 1+d), (-d, +d), **kwargs)
     ax.plot((1-d, 1+d), (1-d, 1+d), **kwargs)
@@ -376,25 +374,16 @@ def backward_growth(NP_az):
     plt.legend(loc='best')
     plt.xlabel(r'$1+z$')
     f.subplots_adjust(hspace=0.01)
-    # What's cool about this is that now if we vary the distance between
-    # ax and ax2 via f.subplots_adjust(hspace=...) or plt.subplot_tool(),
-    # the diagonal lines will move accordingly, and stay right at the tips
-    # of the spines they are 'breaking'
     plt.savefig('ax_1.png')
     plt.close()
-    
     
     plt.figure(figsize=(10, 8))
     plt.plot(1+z, sol[:, 0]/rho_c, label=r'$\Omega_m$')
     plt.plot(1+z, sol[:, 1]/rho_c, label=r'$\Omega_r$')
     plt.plot(1+z, sol[:, 2]/rho_c, label=r'$\Omega_\phi$')
-    #plt.plot(z, sol[:, 3], label=r'$H$')
-    #plt.plot(z, sol[:, 4], label='a')
-    #plt.plot(1+z, w_phi, label=r'$w_\phi$')
     plt.plot(1+z, q, label='q')
     plt.plot(1+z, sol[:, 5]*H_0, label=r'$H_0t$')
     plt.plot(1+z,w_phi, label=r'$w_\phi$')
-    #plt.plot(1+z, w_phi_avg, label=r'$\langle w_\phi \rangle$')
     plt.legend(loc='best')
     plt.xlabel(r'$1+z$')
     plt.xlim( 1,1e5) # 限制 x 軸的範圍從 0 到 10
@@ -405,7 +394,6 @@ def backward_growth(NP_az):
     plt.close()
     
     array_str = np.array2string(NP_az)
-    
     z_input = np.array([0.30, 0.51, 0.71, 0.93, 1.32, 1.49, 2.33])
     
     plt.figure(figsize=(10, 8))
@@ -420,62 +408,26 @@ def backward_growth(NP_az):
     plt.xlim( 1.2,3.4) # 限制 x 軸的範圍從 0 到 10
     plt.ylim( 1,42)
     plt.xscale('log')
-    #plt.title(f'{array_str}')
     plt.grid()
     plt.savefig('error.png')
     plt.close()
+    
     return chi_squared_SUM, status_1060
 
 def forward_evolution(status, d_m1060):
-    # 創建一個字典來存儲每個函數的結果
-    function_results = {}
-
-    for x in range(0, len(NP_az[0])-1):
-        # 定義 F1_Ori 方程式
-        F1_Ori = b*(a-NP_az[0,x])*(a-NP_az[0,x+1])
-        
-        # 進行積分
-        result = integrate(F1_Ori, a)
-        # 將 a 的值設定為 1，b 的值設定為 2
-        a_value_1 = NP_az[0,x]
-        a_value_2 = NP_az[0,x+1]
-        b_value = 1
-        
-        # 求出b
-        result_1 = result.subs({a: a_value_1, b: b_value})
-        result_2 = result.subs({a: a_value_2, b: b_value})
-        b_value = (NP_az[1,x]-NP_az[1,x+1])/(result_1-result_2)
-        # 求出c
-        result_1 = result.subs({ b: b_value}) - result.subs({a: a_value_1, b: b_value}) + NP_az[1,x]
-        
-        # 將結果存儲到字典中
-        function_results[f"function_{x}"] = result_1
-    # Reverse the order of NP_az 
-    NP_az_rev = NP_az[:, ::-1]
-    # 自定義反轉順序
-    function_results_rev = {
-        "function_0": function_results["function_4"],
-        "function_1": function_results["function_3"],
-        "function_2": function_results["function_2"],
-        "function_3": function_results["function_1"],
-        "function_4": function_results["function_0"]
-    }
-    functions_rev = []
-    for i in range(0, len(NP_az_rev[0])-1):
-        f = lambdify(a, function_results_rev[f"function_{i}"])
-        functions_rev.append(f)
-    # 定義微分方程
+    # 定義微分方程 (優化：使用預編譯函數)
     def model(y, eta):
         rho_m, rho_r, rho_phi, H, a, t, r, D, d_m, v = y
         w_m, w_r, w_phi = 0.0, 1/3, -1.0  # 這裡假設 w_i 為常數，您可以根據需要進行修改    
-        # 根據a的值選擇適當的w_phi函數
+        
         if a < NP_az_rev[0, len(NP_az_rev[0])-1]:
             for x in range(0, len(NP_az_rev[0])-1):
                 if  a < NP_az_rev[0, x + 1]:
-                    w_phi = functions_rev[x](a)
+                    w_phi = float(functions_backward[x](a))
                     break
         else:
-            w_phi = -1
+            w_phi = -1.0
+            
         O_m = rho_m/(rho_m+rho_r+rho_phi)
         dydeta = [-3*a*H*(1+w_m)*rho_m,
                   -3*a*H*(1+w_r)*rho_r,
@@ -490,8 +442,9 @@ def forward_evolution(status, d_m1060):
         return np.array(dydeta)
 
     # 初始條件
-    y0 = np.concatenate([status, np.array([d_m1060, 0])])    # 時間點
-    eta = np.linspace(0, 4, 100000)  # 這裡假設 eta 從 0 到 10，您可以根據需要進行修改
+    status = np.array(status)  
+    y0 = np.append(status, [d_m1060, 0])
+    eta = np.linspace(0, 3.5, 1000000)  
 
     # 解微分方程
     sol_B = odeint(model, y0, eta)
@@ -501,16 +454,27 @@ def forward_evolution(status, d_m1060):
     sol_B = sol_B[valid_indices]
     eta = eta[valid_indices]
     
-    #print("sol_B[:, 8] 的最后一个值:", sol_B[-1, 8])
     z = 1/sol_B[:, 4] -1
     rho_c = 3*sol_B[:, 3]**2
+    
+    w_phi = []
+    for a_val in sol_B[:, 4]: # 對 A 中的每個元素 x
+        if a_val > NP_az[0, len(NP_az_rev[0])-1]:
+            for x in range(0, len(NP_az_rev[0])-1):
+                if  a_val >= NP_az[0, x + 1]:
+                    w_phi.append(float(functions_forward[x](a_val)))
+                    break
+        else:
+            w_phi.append(-1.0)
+    w_phi_np = np.array(w_phi)
 
+    q = sol_B[:, 1]/rho_c + 1/2*sol_B[:, 0]/rho_c + 1/2*sol_B[:, 2]/rho_c*(1 +3*w_phi_np)
     Omega_m = sol_B[:, 0]/rho_c
     Omega_r = sol_B[:, 1]/rho_c
     Omega_phi = sol_B[:, 2]/rho_c
     Omega_b = sol_B[:, 0]/rho_c/0.1424 * 0.02242
     Omega_b_0 = rho_m0/rho_c0/0.1424 * 0.02242
-    
+
     #定義變數
     V_0 = sol_B[-1, 9]
     # 計算gamma
@@ -519,24 +483,19 @@ def forward_evolution(status, d_m1060):
     gamma = np.log(gamma)/np.log(Omega_m[-1])
     chi_squared_gamma = ((0.633-gamma_1)/0.024)**2
     d_m0 = sol_B[-1, 8]
+    
     print("gamma = ", gamma)
     print("V_0 = ", V_0)
     print("gamma_1 = ", gamma_1, "chi_squared_gamma = ", chi_squared_gamma)
     print("d_m0 =", d_m0)
+    
     # 繪製結果
     plt.figure(figsize=(10, 8))
     plt.plot(1+z, sol_B[:, 0]/rho_c, label=r'$\Omega_m$')
     plt.plot(1+z, sol_B[:, 1]/rho_c, label=r'$\Omega_r$')
     plt.plot(1+z, sol_B[:, 2]/rho_c, label=r'$\Omega_\phi$')
-    #plt.plot(z, sol_B[:, 3], label=r'$H$')
-    #plt.plot(z, sol_B[:, 4], label='a')
-    #plt.plot(1+z, w_phi, label=r'$w_\phi$')
-    #plt.plot(1+z, q, label='q')
-    #plt.plot(1+z, sol_B[:, 5]*H_0, label=r'$H_0t$')
     plt.plot(1+z, sol_B[:, 8], label=r'$\delta$')
     plt.plot(1+z, sol_B[:, 9], label=r'$d\delta$')
-    #plt.plot(1+z, w_phi_avg, label=r'$\langle w_\phi \rangle$')
-    #plt.plot(eta, rho_c/rho_c0, label='rho_c')
     plt.legend(loc='best')
     plt.xlabel(r'$1+z$')
     plt.ylim(-3, 2)
@@ -545,26 +504,24 @@ def forward_evolution(status, d_m1060):
     plt.grid()
     plt.savefig('forward_1.png')
     plt.close()
-    return d_m0, chi_squared_gamma
 
-def forward_evolution_2(status_1060, d_m1060, sol_B, z):
     plt.figure(figsize=(10, 8))
     plt.plot(1+z, sol_B[:, 8], label=r'$\delta$')
     plt.plot(1+z, sol_B[:, 9], label=r'$d\delta$')
-    #plt.plot(1+z, w_phi_avg, label=r'$\langle w_\phi \rangle$')
-    #plt.plot(eta, rho_c/rho_c0, label='rho_c')
     plt.legend(loc='best')
     plt.xlabel(r'$1+z$')
-    #plt.ylim(-3, 2)
     plt.xlim(1061, 1) # 限制 x 軸的範圍從 0 到 10
     plt.xscale('log')
     plt.grid()
     plt.savefig('forward_2.png')
     plt.close()
+    
     return d_m0, chi_squared_gamma
 
-chi_squared_SUM, status_1060 = backward_growth(NP_az)
-d_m0, chi_squared_gamma = forward_evolution(status_1060, d_m1060)
-chi_squared_SUM = chi_squared_SUM + chi_squared_gamma
 
-print("chi_squared_SUM = ",chi_squared_SUM)
+if __name__ == "__main__":
+    chi_squared_SUM, status_1060 = backward_growth(NP_az)
+    d_m0, chi_squared_gamma = forward_evolution(status_1060, d_m1060)
+    chi_squared_SUM = chi_squared_SUM + chi_squared_gamma
+
+    print("chi_squared_SUM = ",chi_squared_SUM)

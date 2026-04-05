@@ -1,4 +1,4 @@
-# phys: implementation of forward background evolution from decoupling epoch
+# phys: backward integration from present-day (t=0) to the early universe
 """
 Created on Fri Nov 10 01:59:31 2023
 

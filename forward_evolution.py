@@ -1,4 +1,4 @@
-# phys: implementation of backward integration from present to early universe
+# phys: forward evolution from decoupling (z~1060) to the present day
 """
 Created on Fri Jan  3 04:09:22 2025
 

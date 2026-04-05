@@ -1,4 +1,4 @@
-# phys: integrates forward evolution (Phase A) and backward growth (Phase B)
+# phys: integrates backward integration (from now) and forward evolution (from z~1060)
 """
 Created on Fri Mar 28 01:52:28 2025
 

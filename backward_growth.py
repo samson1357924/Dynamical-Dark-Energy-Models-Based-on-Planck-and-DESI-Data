@@ -1,4 +1,4 @@
-# phys: Phase B - backward integration for growth rate analysis
+# phys: Phase B logic - backward integration from today for growth rate analysis
 """
 Created on Fri Nov 10 01:59:31 2023
 

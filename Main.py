@@ -1,4 +1,4 @@
-# phys: primary analysis script integrating Phase A (forward) and Phase B (backward)
+# phys: integrates forward evolution (Phase A) and backward growth (Phase B)
 """
 Created on Fri Mar 28 01:52:28 2025
 

@@ -1,4 +1,4 @@
-# phys: Phase A logic - forward evolution from decoupling (z~1060) to today
+# phys: implementation of backward integration from present to early universe
 """
 Created on Fri Jan  3 04:09:22 2025
 

@@ -7,16 +7,17 @@ This repository implements a numerical framework to simulate cosmological evolut
 The core of this project is a Python-based solver that explores the parameter space of dynamical dark energy. By integrating the Friedmann equations and density evolution, the system calculates $\chi^2$ statistics against observational data to find the most probable cosmological model.
 
 ### Key Logic: A+B Merged System
-The primary analysis script (e.g., `A+B.py` or `merge.py`) represents the integration of two critical numerical phases:
+The primary analysis script (e.g., `A+B.py`) represents the integration of two critical numerical phases:
 
-1.  **Phase A (Forward Integration - `from_decouple`)**: 
-    - Integrates the background evolution from the decoupling epoch ($z \approx 1060$) to the present day ($z=0$).
+1.  **Phase A (Backward Evolution - `from_decouple`)**: 
+    - Integrates the background cosmological evolution from the **present day ($t=0$) back to the past** (up to the decoupling epoch, $z \approx 1060$).
     - Computes observational quantities: Hubble parameter $H(z)$, Angular Diameter Distance $D_A(z)$, and comoving volume distance $D_V(z)$.
-    - Compares results against **DESI BAO** measurements across 7 redshift bins and the **Planck 2018** acoustic angular scale $\theta_*$.
+    - Compares results against **DESI BAO** measurements and the **Planck 2018** acoustic angular scale $\theta_*$.
 
-2.  **Phase B (Backward Integration - `reverse_compare`)**:
-    - Performed to analyze the matter perturbation growth rate ($\delta_m$).
-    - **$D_{m1060}$ Parameter**: This specific parameter is treated as a constraint. It is adjusted such that the final growth factor $\delta_m$ matches the current observed normalization (effectively ensuring the growth history is physically consistent with $\theta=1$ at $z=0$).
+2.  **Phase B (Growth Rate Analysis - `reverse_compare`)**:
+    - Utilizes the data derived from the backward evolution in Phase A.
+    - **$D_{m1060}$ Optimization**: Employs a constraint-based approach to find the most suitable $D_{m1060}$ value. This value is optimized to ensure that when integrated, the growth factor results in $\theta_0 = 1$ at the present epoch.
+    - Once the optimal $D_{m1060}$ is identified, it is fed into the Phase B simulation to ensure a physically consistent matter perturbation history.
 
 ### Dynamic Dark Energy Model ($w_\phi$)
 - Uses a piecewise quadratic functional approach defined by control points `NP_az`.

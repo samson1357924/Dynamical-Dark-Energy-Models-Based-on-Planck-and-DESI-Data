@@ -41,7 +41,7 @@ NP_az = np.array([[ 1.00000000e+00,  8.31053215e-01,  6.19908704e-01,  4.6841623
 d_m1060 = 0.0024727484505241547
 
 # 定義 w_phi_a 為 2x6 的變數 (可以初始化為隨機數或某個起始值)
-def run_program_A(NP_az):
+def backward_growth(NP_az):
     a = Symbol('a') 
     y = Symbol('y')
     f = Function('f')
@@ -424,7 +424,7 @@ def run_program_A(NP_az):
     plt.show()
     return chi_squared_SUM, status_1060
 
-def run_program_B(status, d_m1060):
+def forward_evolution(status, d_m1060):
     # 創建一個字典來存儲每個函數的結果
     function_results = {}
 

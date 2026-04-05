@@ -9,52 +9,38 @@ The core of this project is a Python-based solver that explores the parameter sp
 ### Key Logic: A+B Merged System
 The primary analysis script (e.g., `A+B.py`) represents the integration of two critical numerical phases:
 
-1.  **Phase A (Backward Evolution - `from_decouple`)**: 
-    - Integrates the background cosmological evolution from the **present day ($t=0$) back to the past** (up to the decoupling epoch, $z \approx 1060$).
-    - Computes observational quantities: Hubble parameter $H(z)$, Angular Diameter Distance $D_A(z)$, and comoving volume distance $D_V(z)$.
-    - Compares results against **DESI BAO** measurements and the **Planck 2018** acoustic angular scale $\theta_*$.
+1.  **Phase A (Forward Evolution - `from_decouple.py`)**: 
+    - **Logic**: Implemented in `run_program_A`.
+    - **Direction**: Integrates the background cosmological evolution from the **decoupling epoch ($z \approx 1060$) forward to the present day ($t=0$)**.
+    - **Functions**: Computes Hubble parameter $H(z)$, Angular Diameter Distance $D_A(z)$, and comoving volume distance $D_V(z)$.
+    - **Data Comparison**: Evaluates $\chi^2$ against **DESI BAO** and **Planck 2018** acoustic angular scale $\theta_*$.
 
-2.  **Phase B (Growth Rate Analysis - `reverse_compare`)**:
-    - Utilizes the data derived from the backward evolution in Phase A.
-    - **$D_{m1060}$ Optimization**: Employs a constraint-based approach to find the most suitable $D_{m1060}$ value. This value is optimized to ensure that when integrated, the growth factor results in $\theta_0 = 1$ at the present epoch.
-    - Once the optimal $D_{m1060}$ is identified, it is fed into the Phase B simulation to ensure a physically consistent matter perturbation history.
+2.  **Phase B (Backward Evolution & Growth Analysis - `reverse_compare_...py`)**:
+    - **Logic**: Implemented in `run_program_B`.
+    - **Direction**: Integrates the matter perturbation growth ($\delta_m$) and background state from the **present day ($t=0$) backward to the early universe**.
+    - **Constraint Logic (`constraint.py`)**: This script is used to find the most suitable $D_{m1060}$ value. It treats $D_{m1060}$ as an optimization parameter to ensure that the backward integration results in a growth factor $\theta_0 = 1$ at the present epoch.
+    - **Integration**: The optimized $D_{m1060}$ is then used in Phase B to maintain physical consistency across the growth history.
 
 ### Dynamic Dark Energy Model ($w_\phi$)
-- Uses a piecewise quadratic functional approach defined by control points `NP_az`.
-- Leverages `sympy` for symbolic integration and `lambdify` for high-performance numerical execution.
+- Uses a piecewise quadratic functional approach defined by control points `NP_az` (implemented in `w_phi_a.py`).
+- Leverages `sympy` for symbolic integration and `lambdify` for numerical execution.
 
 ## 🛠 Required Environment
 
 - **Python 3.8+**
-- **Libraries**:
-    - `numpy`: Numerical array operations.
-    - `scipy`: ODE integration (`odeint`) and optimization (`minimize`).
-    - `sympy`: Symbolic mathematics.
-    - `pandas`: Data export to Excel.
-    - `matplotlib`: Plotting cosmological evolution and $\chi^2$ contours.
+- **Libraries**: `numpy`, `scipy`, `sympy`, `pandas`, `matplotlib`, `openpyxl`.
 
-Install all requirements via:
+Install via pip:
 ```bash
 pip install numpy scipy sympy pandas matplotlib openpyxl
 ```
 
 ## 🚀 Execution Guide
 
-### 1. Model Setup
-The control points for the redshift bins and $w_\phi$ values are stored in `w_phi_a.py`. This file pre-generates the functional forms required for the ODE solver.
-
-### 2. Running the Main Analysis
-To execute the merged A+B logic and calculate the total $\chi^2$:
-```bash
-python A+B.py
-```
-
-### 3. Optimization
-The `minimize.py` script utilizes the `SLSQP` algorithm to find the best-fit values for the dark energy EoS parameters while respecting the constraints defined in the A+B framework.
-
-## 📊 Outputs
-- **Plots**: Evolution of $\Omega_m, \Omega_r, \Omega_\phi$, and $w_\phi$ over time ($1+z$).
-- **Excel**: Detailed $\chi^2$ breakdowns and distance measurements are exported to `output.xlsx`.
+1. **`w_phi_a.py`**: Configuration for redshift bins and symbolic $w_\phi$ generation.
+2. **`A+B.py`**: Executes the full analysis pipeline (Phase A + Phase B) using current best-fit parameters.
+3. **`constraint.py`**: Specialized script for optimizing the $D_{m1060}$ parameter to satisfy the $\theta_0 = 1$ condition.
+4. **`minimize.py`**: Performs multi-parameter optimization for $w_\phi$ using the `SLSQP` algorithm.
 
 ---
 **Author**: Chen, Hsiao-Hsuan (Samson)

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# phys: optimize D_m1060 parameter to satisfy theta_0=1 constraint
 """
 Created on Tue Mar 18 02:08:24 2025
 

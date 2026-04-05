@@ -557,8 +557,8 @@ def forward_evolution(status, d_m1060):
     plt.show()
     return d_m0, chi_squared_gamma
 
-chi_squared_SUM, status_1060 = run_program_A(NP_az)
-d_m0, chi_squared_gamma = run_program_B(status_1060, d_m1060)
+chi_squared_SUM, status_1060 = backward_growth(NP_az)
+d_m0, chi_squared_gamma = forward_evolution(status_1060, d_m1060)
 chi_squared_SUM = chi_squared_SUM + chi_squared_gamma
 
 print("chi_squared_SUM = ",chi_squared_SUM)
